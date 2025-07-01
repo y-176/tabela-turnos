@@ -199,6 +199,94 @@
       XLSX.utils.book_append_sheet(wb, ws, "Tabela");
       XLSX.writeFile(wb, "tabela_producao.xlsx");
     }
+>
+  function inserirValor() {
+    const grupo = grupoSel.value;
+    const turno = turnoSel.value;
+    const dia = diaSel.value;
+    const valor = parseFloat(valorInput.value);
+
+    if (isNaN(valor)) {
+      alert("Digite um valor numérico válido.");
+      return;
+    }
+
+    const row = tabela.querySelector(`tr[data-grupo="${grupo}"][data-turno="${turno}"]`);
+    const cell = row.querySelector(`td[data-dia="${dia}"]`);
+    const atual = parseFloat(cell.textContent) || 0;
+    const novo = atual + valor;
+
+    cell.textContent = novo.toString();
+    if (novo > 0) {
+      cell.classList.add("highlight");
+    }
+
+    valorInput.value = "";
+    salvarTabela();
+  }
+
+  function limparCelula() {
+    const grupo = grupoSel.value;
+    const turno = turnoSel.value;
+    const dia = diaSel.value;
+    const row = tabela.querySelector(`tr[data-grupo="${grupo}"][data-turno="${turno}"]`);
+    const cell = row.querySelector(`td[data-dia="${dia}"]`);
+    cell.textContent = "0";
+    cell.classList.remove("highlight");
+    salvarTabela();
+  }
+
+  function resetarTudo() {
+    if (!confirm("Tem certeza que deseja limpar todos os valores da tabela?")) return;
+    const cells = tabela.querySelectorAll("td[data-dia]");
+    cells.forEach(cell => {
+      cell.textContent = "0";
+      cell.classList.remove("highlight");
+    });
+    localStorage.removeItem("tabelaProducao");
+  }
+
+  function salvarTabela() {
+    const dados = [];
+    const linhas = tabela.querySelectorAll("tr");
+    linhas.forEach(row => {
+      const grupo = row.getAttribute("data-grupo");
+      const turno = row.getAttribute("data-turno");
+      if (!grupo || !turno) return;
+
+      const valores = Array.from(row.querySelectorAll("td[data-dia]")).map(td => ({
+        dia: td.getAttribute("data-dia"),
+        valor: td.textContent,
+        destaque: td.classList.contains("highlight")
+      }));
+
+      dados.push({ grupo, turno, valores });
+    });
+
+    localStorage.setItem("tabelaProducao", JSON.stringify(dados));
+  }
+
+  function carregarTabela() {
+    const salvo = localStorage.getItem("tabelaProducao");
+    if (!salvo) return;
+
+    const dados = JSON.parse(salvo);
+    dados.forEach(linha => {
+      const row = tabela.querySelector(`tr[data-grupo="${linha.grupo}"][data-turno="${linha.turno}"]`);
+      linha.valores.forEach(item => {
+        const cell = row.querySelector(`td[data-dia="${item.dia}"]`);
+        cell.textContent = item.valor;
+        if (parseFloat(item.valor) > 0 && item.destaque) {
+          cell.classList.add("highlight");
+        } else {
+          cell.classList.remove("highlight");
+        }
+      });
+    });
+  }
+
+  // Carrega dados salvos ao abrir
+  carregarTabela();
   </script>
 </body>
 </html>
