@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Tabela de Produção</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .form-container {
+      background: #f9f9f9;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    select, input[type="number"], button {
+      padding: 6px 10px;
+      font-size: 14px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      table-layout: fixed;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 5px;
+      text-align: center;
+      font-size: 13px;
+    }
+    th {
+      background-color: #eee;
+    }
+    td {
+      background-color: #fff;
+    }
+    td:not(:first-child):hover {
+      background-color: #f0f8ff;
+    }
+    .grupo-label {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+    th:first-child, td:first-child {
+      width: 200px;
+      min-width: 200px;
+      max-width: 220px;
+      white-space: nowrap;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .highlight {
+      background-color: #cce5ff !important;
+    }
+  </style>
+</head>
+<body>
+  <h2>Tabela de Produção</h2>
+
+  <div class="form-container">
+    <label>Grupo:
+      <select id="grupo"></select>
+    </label>
+
+    <label>Turno:
+      <select id="turno">
+        <option value="dia">Dia</option>
+        <option value="noite">Noite</option>
+      </select>
+    </label>
+
+    <label>Dia:
+      <select id="dia"></select>
+    </label>
+
+    <label>Valor:
+      <input type="number" id="valor" placeholder="Ex: 5" />
+    </label>
+
+    <button onclick="inserirValor()">Adicionar</button>
+    <button onclick="limparCelula()">Limpar Célula</button>
+  </div>
+
+  <div class="controls">
+    <button onclick="resetarTudo()">🔄 Resetar Tudo</button>
+    <button onclick="exportarXLSX()">📤 Exportar para Excel</button>
+  </div>
+
+  <table id="tabela">
+    <thead>
+      <tr>
+        <th>Grupo / Turno</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const tabela = document.getElementById("tabela").getElementsByTagName("tbody")[0];
+    const grupoSel = document.getElementById("grupo");
+    const turnoSel = document.getElementById("turno");
+    const diaSel = document.getElementById("dia");
+    const valorInput = document.getElementById("valor");
+
+    // Preenche seletores
+    for (let g = 1; g <= 19; g++) {
+      grupoSel.innerHTML += `<option value="${g}">Grupo ${g}</option>`;
+    }
+    for (let d = 1; d <= 30; d++) {
+      diaSel.innerHTML += `<option value="${d}">Dia ${d}</option>`;
+    }
+
+    // Cabeçalho
+    const thead = document.getElementById("tabela").getElementsByTagName("thead")[0];
+    const headerRow = thead.rows[0];
+    for (let d = 1; d <= 30; d++) {
+      headerRow.innerHTML += `<th>${d}</th>`;
+    }
+
+    // Criar 38 linhas (19 grupos × 2 turnos)
+    for (let g = 1; g <= 19; g++) {
+      ["Dia", "Noite"].forEach(turno => {
+        const row = tabela.insertRow();
+        row.setAttribute("data-grupo", g);
+        row.setAttribute("data-turno", turno.toLowerCase());
+        row.insertCell().innerHTML = `<span class="grupo-label">Grupo ${g} - ${turno}</span>`;
+        for (let d = 1; d <= 30; d++) {
+          const cell = row.insertCell();
+          cell.setAttribute("data-dia", d);
+          cell.textContent = "0";
+        }
+      });
+    }
+
+    function inserirValor() {
+      const grupo = grupoSel.value;
+      const turno = turnoSel.value;
+      const dia = diaSel.value;
+      const valor = parseFloat(valorInput.value);
+
+      if (isNaN(valor)) {
+        alert("Digite um valor numérico válido.");
+        return;
+      }
+
+      const row = tabela.querySelector(`tr[data-grupo="${grupo}"][data-turno="${turno}"]`);
+      const cell = row.querySelector(`td[data-dia="${dia}"]`);
+      const atual = parseFloat(cell.textContent) || 0;
+      const novo = atual + valor;
+
+      cell.textContent = novo.toString();
+      if (novo > 0) {
+        cell.classList.add("highlight");
+      }
+
+      valorInput.value = "";
+    }
+
+    function limparCelula() {
+      const grupo = grupoSel.value;
+      const turno = turnoSel.value;
+      const dia = diaSel.value;
+      const row = tabela.querySelector(`tr[data-grupo="${grupo}"][data-turno="${turno}"]`);
+      const cell = row.querySelector(`td[data-dia="${dia}"]`);
+      cell.textContent = "0";
+      cell.classList.remove("highlight");
+    }
+
+    function resetarTudo() {
+      if (!confirm("Tem certeza que deseja limpar todos os valores da tabela?")) return;
+      const cells = tabela.querySelectorAll("td[data-dia]");
+      cells.forEach(cell => {
+        cell.textContent = "0";
+        cell.classList.remove("highlight");
+      });
+    }
+
+    function exportarXLSX() {
+      const wb = XLSX.utils.book_new();
+      const data = [["Grupo / Turno", ...Array.from({length: 30}, (_, i) => "Dia " + (i + 1))]];
+
+      const rows = tabela.querySelectorAll("tr");
+      rows.forEach(row => {
+        const grupo = row.cells[0].innerText;
+        const valores = Array.from(row.querySelectorAll("td[data-dia]")).map(td => parseFloat(td.textContent) || 0);
+        data.push([grupo, ...valores]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "Tabela");
+      XLSX.writeFile(wb, "tabela_producao.xlsx");
+    }
+  </script>
+</body>
+</html>
