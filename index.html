@@ -126,20 +126,34 @@
       headerRow.innerHTML += `<th>${d}</th>`;
     }
 
-    // Criar 38 linhas (19 grupos × 2 turnos)
-    for (let g = 1; g <= 19; g++) {
-      ["Dia", "Noite"].forEach(turno => {
-        const row = tabela.insertRow();
-        row.setAttribute("data-grupo", g);
-        row.setAttribute("data-turno", turno.toLowerCase());
-        row.insertCell().innerHTML = `<span class="grupo-label">Grupo ${g} - ${turno}</span>`;
-        for (let d = 1; d <= 30; d++) {
-          const cell = row.insertCell();
-          cell.setAttribute("data-dia", d);
-          cell.textContent = "0";
-        }
-      });
+for (let g = 1; g <= 19; g++) {
+  ["Dia", "Noite"].forEach(turno => {
+    const row = tabela.insertRow();
+    row.setAttribute("data-grupo", g);
+    row.setAttribute("data-turno", turno.toLowerCase());
+
+    const grupoCell = row.insertCell();
+    grupoCell.innerHTML = `<span class="grupo-label">Grupo ${g} - ${turno}</span>`;
+
+    // Cor de fundo para o grupo (cor fixa por grupo)
+    const cor = coresGrupos[g % coresGrupos.length];
+    grupoCell.style.backgroundColor = cor;
+
+    for (let d = 1; d <= 30; d++) {
+      const cell = row.insertCell();
+      cell.setAttribute("data-dia", d);
+      cell.textContent = "0";
     }
+  });
+}
+
+
+const coresGrupos = [
+  "#f2f2f2", "#ffe4e1", "#e6f7ff", "#fffacd", "#e0ffe0",
+  "#f9e0ff", "#d0f0ff", "#ffefd5", "#f0fff0", "#ffe0f0",
+  "#f0f8ff", "#f5f5dc", "#fff0f5", "#fdf5e6", "#e6ffe6",
+  "#e0ffff", "#fafad2", "#ffebcd", "#eaeaea"
+];
 
     function inserirValor() {
       const grupo = grupoSel.value;
