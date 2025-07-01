@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Tabela de Produção</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
   <style>
@@ -19,7 +19,7 @@
       align-items: center;
       flex-wrap: wrap;
     }
-    select, input[type="number"], button {
+    button {
       padding: 6px 10px;
       font-size: 14px;
     }
@@ -27,39 +27,46 @@
       border-collapse: collapse;
       width: 100%;
       table-layout: fixed;
+      user-select: none;
     }
     th, td {
       border: 1px solid #ccc;
       padding: 5px;
       text-align: center;
       font-size: 13px;
+      cursor: pointer;
     }
     th {
       background-color: #eee;
+      cursor: default;
     }
     td {
       background-color: #fff;
     }
-    td:not(:first-child):hover {
-      background-color: #f0f8ff;
+    td.highlight {
+      background-color: #cce5ff !important;
+    }
+    td.selected {
+      outline: 3px solid #ff9800;
+      outline-offset: -3px;
     }
     .grupo-label {
       font-weight: bold;
       white-space: nowrap;
+      cursor: default;
     }
     th:first-child, td:first-child {
       width: 200px;
       min-width: 200px;
       max-width: 220px;
       white-space: nowrap;
+      cursor: default;
     }
     .controls {
       display: flex;
       gap: 10px;
       margin-top: 10px;
-    }
-    .highlight {
-      background-color: #cce5ff !important;
+      align-items: center;
     }
   </style>
 </head>
@@ -67,30 +74,7 @@
   <h2>Tabela de Produção</h2>
 
   <div class="form-container">
-    <label>Grupo:
-      <select id="grupo"></select>
-    </label>
-
-    <label>Turno:
-      <select id="turno">
-        <option value="dia">Dia</option>
-        <option value="noite">Noite</option>
-      </select>
-    </label>
-
-    <label>Dia:
-      <select id="dia"></select>
-    </label>
-
-    <label>Valor:
-      <input type="number" id="valor" placeholder="Ex: 5" />
-    </label>
-
-    <button onclick="inserirValor()">Adicionar</button>
-    <button onclick="limparCelula()">Limpar Célula</button>
-  </div>
-
-  <div class="controls">
+    <button id="limparCelulaBtn" disabled>Limpar Célula Selecionada</button>
     <button onclick="resetarTudo()">🔄 Resetar Tudo</button>
     <button onclick="exportarXLSX()">📤 Exportar para Excel</button>
   </div>
@@ -105,146 +89,121 @@
   </table>
 
   <script>
-const tabela = document.getElementById("tabela").getElementsByTagName("tbody")[0];
-const grupoSel = document.getElementById("grupo");
-const turnoSel = document.getElementById("turno");
-const diaSel = document.getElementById("dia");
-const valorInput = document.getElementById("valor");
+    const tabela = document.getElementById("tabela").getElementsByTagName("tbody")[0];
+    let celulaSelecionada = null;
+    const limparBtn = document.getElementById("limparCelulaBtn");
 
-// Preenche seletores
-for (let g = 1; g <= 19; g++) {
-  grupoSel.innerHTML += `<option value="${g}">Grupo ${g}</option>`;
-}
-for (let d = 1; d <= 30; d++) {
-  diaSel.innerHTML += `<option value="${d}">Dia ${d}</option>`;
-}
-
-// Cabeçalho
-const thead = document.getElementById("tabela").getElementsByTagName("thead")[0];
-const headerRow = thead.rows[0];
-for (let d = 1; d <= 30; d++) {
-  headerRow.innerHTML += `<th>${d}</th>`;
-}
-
-// Criar 38 linhas (19 grupos × 2 turnos)
-for (let g = 1; g <= 19; g++) {
-  ["Dia", "Noite"].forEach(turno => {
-    const row = tabela.insertRow();
-    row.setAttribute("data-grupo", g);
-    row.setAttribute("data-turno", turno.toLowerCase());
-    row.insertCell().innerHTML = `<span class="grupo-label">Grupo ${g} - ${turno}</span>`;
+    // Cabeçalho
+    const thead = document.getElementById("tabela").getElementsByTagName("thead")[0];
+    const headerRow = thead.rows[0];
     for (let d = 1; d <= 30; d++) {
-      const cell = row.insertCell();
-      cell.setAttribute("data-dia", d);
-      cell.textContent = "0";
+      headerRow.innerHTML += `<th>${d}</th>`;
     }
-  });
-}
 
-function inserirValor() {
-  const grupo = grupoSel.value;
-  const turno = turnoSel.value;
-  const dia = diaSel.value;
-  const valor = parseFloat(valorInput.value);
+    // Criar 38 linhas (19 grupos × 2 turnos)
+    for (let g = 1; g <= 19; g++) {
+      ["Dia", "Noite"].forEach(turno => {
+        const row = tabela.insertRow();
+        row.setAttribute("data-grupo", g);
+        row.setAttribute("data-turno", turno.toLowerCase());
+        row.insertCell().innerHTML = `<span class="grupo-label">Grupo ${g} - ${turno}</span>`;
+        for (let d = 1; d <= 30; d++) {
+          const cell = row.insertCell();
+          cell.setAttribute("data-dia", d);
+          cell.textContent = "0";
+          // Clique na célula incrementa +1 e seleciona ela
+          cell.addEventListener("click", () => {
+            incrementarCelula(cell);
+          });
+        }
+      });
+    }
 
-  if (isNaN(valor)) {
-    alert("Digite um valor numérico válido.");
-    return;
-  }
-
-  const row = tabela.querySelector(`tr[data-grupo="${grupo}"][data-turno="${turno}"]`);
-  const cell = row.querySelector(`td[data-dia="${dia}"]`);
-  const atual = parseFloat(cell.textContent) || 0;
-  const novo = atual + valor;
-
-  cell.textContent = novo.toString();
-  if (novo > 0) {
-    cell.classList.add("highlight");
-  }
-
-  valorInput.value = "";
-  salvarTabela();
-}
-
-function limparCelula() {
-  const grupo = grupoSel.value;
-  const turno = turnoSel.value;
-  const dia = diaSel.value;
-  const row = tabela.querySelector(`tr[data-grupo="${grupo}"][data-turno="${turno}"]`);
-  const cell = row.querySelector(`td[data-dia="${dia}"]`);
-  cell.textContent = "0";
-  cell.classList.remove("highlight");
-  salvarTabela();
-}
-
-function resetarTudo() {
-  if (!confirm("Tem certeza que deseja limpar todos os valores da tabela?")) return;
-  const cells = tabela.querySelectorAll("td[data-dia]");
-  cells.forEach(cell => {
-    cell.textContent = "0";
-    cell.classList.remove("highlight");
-  });
-  localStorage.removeItem("tabelaProducao");
-}
-
-function salvarTabela() {
-  const dados = [];
-  const linhas = tabela.querySelectorAll("tr");
-  linhas.forEach(row => {
-    const grupo = row.getAttribute("data-grupo");
-    const turno = row.getAttribute("data-turno");
-    if (!grupo || !turno) return;
-
-    const valores = Array.from(row.querySelectorAll("td[data-dia]")).map(td => ({
-      dia: td.getAttribute("data-dia"),
-      valor: td.textContent,
-      destaque: td.classList.contains("highlight")
-    }));
-
-    dados.push({ grupo, turno, valores });
-  });
-
-  localStorage.setItem("tabelaProducao", JSON.stringify(dados));
-}
-
-function carregarTabela() {
-  const salvo = localStorage.getItem("tabelaProducao");
-  if (!salvo) return;
-
-  const dados = JSON.parse(salvo);
-  dados.forEach(linha => {
-    const row = tabela.querySelector(`tr[data-grupo="${linha.grupo}"][data-turno="${linha.turno}"]`);
-    linha.valores.forEach(item => {
-      const cell = row.querySelector(`td[data-dia="${item.dia}"]`);
-      cell.textContent = item.valor;
-      if (parseFloat(item.valor) > 0 && item.destaque) {
+    function incrementarCelula(cell) {
+      const atual = parseInt(cell.textContent) || 0;
+      const novo = atual + 1;
+      cell.textContent = novo;
+      if (novo > 0) {
         cell.classList.add("highlight");
-      } else {
-        cell.classList.remove("highlight");
       }
+
+      selecionarCelula(cell);
+      salvarTabela();
+    }
+
+    function selecionarCelula(cell) {
+      if (celulaSelecionada) {
+        celulaSelecionada.classList.remove("selected");
+      }
+      celulaSelecionada = cell;
+      if (celulaSelecionada) {
+        celulaSelecionada.classList.add("selected");
+        limparBtn.disabled = false;
+      } else {
+        limparBtn.disabled = true;
+      }
+    }
+
+    limparBtn.addEventListener("click", () => {
+      if (!celulaSelecionada) return;
+      celulaSelecionada.textContent = "0";
+      celulaSelecionada.classList.remove("highlight");
+      selecionarCelula(null);
+      salvarTabela();
     });
-  });
-}
 
-// Carrega dados salvos ao abrir
-carregarTabela();
+    function resetarTudo() {
+      if (!confirm("Tem certeza que deseja limpar todos os valores da tabela?")) return;
+      const cells = tabela.querySelectorAll("td[data-dia]");
+      cells.forEach(cell => {
+        cell.textContent = "0";
+        cell.classList.remove("highlight");
+      });
+      selecionarCelula(null);
+      localStorage.removeItem("tabelaProducao");
+    }
 
-function exportarXLSX() {
-  const wb = XLSX.utils.book_new();
-  const data = [["Grupo / Turno", ...Array.from({length: 30}, (_, i) => "Dia " + (i + 1))]];
+    function salvarTabela() {
+      const dados = [];
+      const linhas = tabela.querySelectorAll("tr");
+      linhas.forEach(row => {
+        const grupo = row.getAttribute("data-grupo");
+        const turno = row.getAttribute("data-turno");
+        if (!grupo || !turno) return;
 
-  const rows = tabela.querySelectorAll("tr");
-  rows.forEach(row => {
-    const grupo = row.cells[0].innerText;
-    const valores = Array.from(row.querySelectorAll("td[data-dia]")).map(td => parseFloat(td.textContent) || 0);
-    data.push([grupo, ...valores]);
-  });
+        const valores = Array.from(row.querySelectorAll("td[data-dia]")).map(td => ({
+          dia: td.getAttribute("data-dia"),
+          valor: td.textContent,
+          destaque: td.classList.contains("highlight")
+        }));
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, "Tabela");
-  XLSX.writeFile(wb, "tabela_producao.xlsx");
-}
+        dados.push({ grupo, turno, valores });
+      });
 
+      localStorage.setItem("tabelaProducao", JSON.stringify(dados));
+    }
+
+    function carregarTabela() {
+      const salvo = localStorage.getItem("tabelaProducao");
+      if (!salvo) return;
+
+      const dados = JSON.parse(salvo);
+      dados.forEach(linha => {
+        const row = tabela.querySelector(`tr[data-grupo="${linha.grupo}"][data-turno="${linha.turno}"]`);
+        linha.valores.forEach(item => {
+          const cell = row.querySelector(`td[data-dia="${item.dia}"]`);
+          cell.textContent = item.valor;
+          if (parseFloat(item.valor) > 0 && item.destaque) {
+            cell.classList.add("highlight");
+          } else {
+            cell.classList.remove("highlight");
+          }
+        });
+      });
+    }
+
+    // Carrega dados salvos ao abrir
+    carregarTabela();
   </script>
 </body>
 </html>
