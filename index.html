@@ -74,9 +74,9 @@
   <h2>Tabela de Produção</h2>
 
   <div class="form-container">
-    <button id="limparCelulaBtn" disabled>Limpar Célula Selecionada</button>
+    <button id="limparCelulaBtn" disabled>🧹 Limpar Célula Selecionada</button>
     <button onclick="resetarTudo()">🔄 Resetar Tudo</button>
-    <button onclick="exportarXLSX()">📤 Exportar para Excel</button>
+    <button id="exportarBtn">📤 Exportar para Excel</button>
   </div>
 
   <table id="tabela">
@@ -111,10 +111,7 @@
           const cell = row.insertCell();
           cell.setAttribute("data-dia", d);
           cell.textContent = "0";
-          // Clique na célula incrementa +1 e seleciona ela
-          cell.addEventListener("click", () => {
-            incrementarCelula(cell);
-          });
+          cell.addEventListener("click", () => incrementarCelula(cell));
         }
       });
     }
@@ -126,7 +123,6 @@
       if (novo > 0) {
         cell.classList.add("highlight");
       }
-
       selecionarCelula(cell);
       salvarTabela();
     }
@@ -147,8 +143,9 @@
     limparBtn.addEventListener("click", () => {
       if (!celulaSelecionada) return;
       celulaSelecionada.textContent = "0";
-      celulaSelecionada.classList.remove("highlight");
-      selecionarCelula(null);
+      celulaSelecionada.classList.remove("highlight", "selected");
+      celulaSelecionada = null;
+      limparBtn.disabled = true;
       salvarTabela();
     });
 
@@ -157,9 +154,10 @@
       const cells = tabela.querySelectorAll("td[data-dia]");
       cells.forEach(cell => {
         cell.textContent = "0";
-        cell.classList.remove("highlight");
+        cell.classList.remove("highlight", "selected");
       });
-      selecionarCelula(null);
+      celulaSelecionada = null;
+      limparBtn.disabled = true;
       localStorage.removeItem("tabelaProducao");
     }
 
@@ -170,23 +168,19 @@
         const grupo = row.getAttribute("data-grupo");
         const turno = row.getAttribute("data-turno");
         if (!grupo || !turno) return;
-
         const valores = Array.from(row.querySelectorAll("td[data-dia]")).map(td => ({
           dia: td.getAttribute("data-dia"),
           valor: td.textContent,
           destaque: td.classList.contains("highlight")
         }));
-
         dados.push({ grupo, turno, valores });
       });
-
       localStorage.setItem("tabelaProducao", JSON.stringify(dados));
     }
 
     function carregarTabela() {
       const salvo = localStorage.getItem("tabelaProducao");
       if (!salvo) return;
-
       const dados = JSON.parse(salvo);
       dados.forEach(linha => {
         const row = tabela.querySelector(`tr[data-grupo="${linha.grupo}"][data-turno="${linha.turno}"]`);
@@ -202,8 +196,23 @@
       });
     }
 
-    // Carrega dados salvos ao abrir
+    function exportarXLSX() {
+      const wb = XLSX.utils.book_new();
+      const data = [["Grupo / Turno", ...Array.from({ length: 30 }, (_, i) => "Dia " + (i + 1))]];
+      const rows = tabela.querySelectorAll("tr");
+      rows.forEach(row => {
+        const grupo = row.cells[0].innerText;
+        const valores = Array.from(row.querySelectorAll("td[data-dia]")).map(td => parseFloat(td.textContent) || 0);
+        data.push([grupo, ...valores]);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "Tabela");
+      XLSX.writeFile(wb, "tabela_producao.xlsx");
+    }
+
+    // Inicializações
     carregarTabela();
+    document.getElementById("exportarBtn").addEventListener("click", exportarXLSX);
   </script>
 </body>
 </html>
